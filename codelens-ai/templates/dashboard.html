@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}CodeLens AI — Dashboard{% endblock %}
+{% block content %}
+<h1 class="page">Dashboard</h1>
+<p class="sub">Paper-style model evaluation (matplotlib) trained on the 3,000-task Gries dataset · seed 2023 · stratified 80/20.</p>
+
+<div class="grid4">
+  <div class="stat"><div class="n" id="dsSize">—</div><div class="l">Training records</div></div>
+  <div class="stat"><div class="n" id="bestAcc">—</div><div class="l">Best test accuracy</div></div>
+  <div class="stat"><div class="n" id="bestAuc">—</div><div class="l">Best AUC (macro OvR)</div></div>
+  <div class="stat"><div class="n" id="myRuns">—</div><div class="l">Your analyses saved</div></div>
+</div>
+
+<div class="card">
+  <h3><span class="ic">📊</span> ML model comparison — Accuracy / AUC / MCC <span class="smallnote" style="margin-left:8px">(paper Table I &amp; Fig. 9)</span></h3>
+  <div class="chart" id="c1box"><div style="padding:60px;text-align:center;color:var(--mut)"><span class="spin"></span> Training models & rendering charts…</div></div>
+</div>
+
+<div class="grid2">
+  <div class="card"><h3><span class="ic">🥧</span> Dataset label distribution <span class="smallnote" style="margin-left:6px">(paper §II-A)</span></h3>
+    <div class="chart" id="c2box"></div></div>
+  <div class="card"><h3><span class="ic">🟪</span> Confusion matrix — Voting(RF+MLP) <span class="smallnote" style="margin-left:6px">(paper Fig. 12)</span></h3>
+    <div class="chart" id="c3box"></div></div>
+</div>
+
+<div class="card">
+  <h3><span class="ic">🌟</span> Top AST/Gries-state features (Random Forest importance)</h3>
+  <div class="chart" id="c4box"></div>
+</div>
+
+<div class="card">
+  <h3><span class="ic">📋</span> Metric table</h3>
+  <table><thead><tr><th>Model</th><th>Accuracy</th><th>AUC</th><th>MCC</th></tr></thead>
+  <tbody id="metRows"></tbody></table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(async () => {
+  const r = await fetch("/api/dashboard");
+  const d = await r.json();
+  $("dsSize").textContent = d.dataset_size.toLocaleString();
+  $("myRuns").textContent = d.user_total;
+  const accs = d.metrics.map(m=>m.accuracy), aucs = d.metrics.map(m=>m.auc);
+  $("bestAcc").textContent = (Math.max(...accs)*100).toFixed(1)+"%";
+  $("bestAuc").textContent = (Math.max(...aucs)*100).toFixed(1)+"%";
+  const img = b64 => `<img src="data:image/png;base64,${b64}" style="width:100%;border-radius:12px">`;
+  $("c1box").innerHTML = img(d.charts.models);
+  $("c2box").innerHTML = img(d.charts.distribution);
+  $("c3box").innerHTML = img(d.charts.confusion);
+  $("c4box").innerHTML = img(d.charts.importance);
+  $("metRows").innerHTML = d.metrics.map(m=>`<tr>
+    <td><b>${m.model}</b></td>
+    <td>${(m.accuracy*100).toFixed(1)}%</td>
+    <td>${(m.auc*100).toFixed(1)}%</td>
+    <td>${(m.mcc*100).toFixed(1)}%</td></tr>`).join("");
+})();
+function $(id){return document.getElementById(id);}
+</script>
+{% endblock %}

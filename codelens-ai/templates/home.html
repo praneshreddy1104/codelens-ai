@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}CodeLens AI — Home{% endblock %}
+{% block content %}
+<h1 class="page">CodeLens <span style="background:linear-gradient(90deg,var(--p1),var(--p2));-webkit-background-clip:text;background-clip:text;color:transparent">AI</span></h1>
+<p class="sub">Machine-Learning models for automatic detection of <b>logical errors</b> in Python programs with loops —
+built on the Gries state model (Initial S · Transformation T · Final E) and AST analysis.</p>
+
+<div class="grid4">
+  <div class="stat" style="animation-delay:.05s"><div class="n">7</div><div class="l">Gries error classes<br>(ys, ye, yt + combinations)</div></div>
+  <div class="stat" style="animation-delay:.12s"><div class="n">3,000</div><div class="l">Labelled while-loop tasks<br>(paper dataset design)</div></div>
+  <div class="stat" style="animation-delay:.19s"><div class="n">6</div><div class="l">ML models compared<br>KNN · SVM · RF · MLP · Voting · Stacking</div></div>
+  <div class="stat" style="animation-delay:.26s"><div class="n">85+</div><div class="l">AST features extracted<br>per Gries state (S / T / E)</div></div>
+</div>
+
+<div class="grid2" style="margin-top:22px">
+  <div class="card">
+    <h3><span class="ic">🔍</span> How it works</h3>
+    <div class="smallnote" style="line-height:2">
+      <b style="color:#c9baff">① Paste your Python code</b> — a program with a <code>while</code> loop.<br>
+      <b style="color:#9fe9ff">② Logic check</b> — the AST engine splits your code into the three Gries states
+      and reports logical errors with the exact line &amp; state (S / T / E), then auto-corrects them.<br>
+      <b style="color:#ffb3d9">③ ML AST analysis</b> — the corrected code is classified by 6 trained models
+      (seed 2023, stratified 80/20) over the 7 Gries labels, with matplotlib bar charts.<br>
+      <b style="color:#a5f5d4">④ History</b> — every analysis is saved to your profile.
+    </div>
+    <div class="btn-row">
+      <a class="btn ok btn-sm" href="{{ url_for('analyze_page') }}">🚀 Start Analyzing</a>
+      <a class="btn ghost btn-sm" href="{{ url_for('dashboard') }}">View Dashboard</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="ic">🧠</span> The Gries state model</h3>
+    <div class="codeout" style="min-height:210px">n = 10            <span style="color:#c9baff">← S  Initial state</span>
+total = 0         <span style="color:#c9baff">← S  (precondition: variables before the loop)</span>
+i = 1             <span style="color:#c9baff">← S</span>
+<b style="color:#ffb3d9">while i &lt;= n:</b>    <span style="color:#ffb3d9">← E  Final state (loop condition)</span>
+    total += i    <span style="color:#9fe9ff">← T  Transformation (invariant update)</span>
+    i += 1        <span style="color:#9fe9ff">← T</span>
+print(total)      <span style="color:#ffb3d9">← E  Final state (result after the loop)</span></div>
+    <p class="smallnote" style="margin-top:10px">Errors in <b style="color:#c9baff">S</b> = wrong initialization,
+      errors in <b style="color:#9fe9ff">T</b> = wrong update inside the loop,
+      errors in <b style="color:#ffb3d9">E</b> = wrong loop boundary / final result.</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="ic">📚</span> Base paper &amp; dataset sources</h3>
+  <p class="smallnote" style="margin-bottom:12px">
+    Leyton-Yela, Mora, Insuasti &amp; Barco-Jiménez (2026), <i>“Machine Learning Models for Automatic
+    Classification of Programming Tasks in Python”</i>, IEEE Revista Iberoamericana de Tecnologías del
+    Aprendizaje. Dataset compiled from the repositories referenced in the paper (last page):</p>
+  <div class="ref">[25] <b>IBM Project CodeNet</b> — github.com/IBM/ProjectCodeNet</div>
+  <div class="ref">[26] <b>Codeforwin</b> — codeforwin.org (C/Python beginner loop exercises)</div>
+  <div class="ref">[27] <b>PYnative</b> — pynative.com (Python tutorials, exercises &amp; quizzes)</div>
+</div>
+{% endblock %}

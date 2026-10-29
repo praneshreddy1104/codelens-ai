@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}CodeLens AI — Dataset{% endblock %}
+{% block content %}
+<h1 class="page">Dataset</h1>
+<p class="sub">The Gries while-loop task set used to train the ML models — <b>3,000 records</b>, 4 columns
+(Description, Solution, Feedback, Label), prepared only from the base paper's referenced repositories.</p>
+
+<div class="card">
+  <h3><span class="ic">📚</span> Sources (base paper, references page)</h3>
+  <div class="ref">[25] <b>IBM Project CodeNet</b> — github.com/IBM/ProjectCodeNet — large-scale AI-for-code benchmark</div>
+  <div class="ref">[26] <b>Codeforwin</b> — codeforwin.org — beginner programming exercises with loops</div>
+  <div class="ref">[27] <b>PYnative</b> — pynative.com — Python tutorials, exercises and quizzes</div>
+  <p class="smallnote" style="margin-top:8px">Following paper §II-A: 20 canonical beginner <code>while</code>-loop tasks in the
+  style of these repositories were compiled and augmented (paper's Prompt-1 data-augmentation scheme) to
+  <b>3,000 records</b> with logic errors injected into exactly the S / T / E Gries states — no syntax errors.
+  Distribution: <b>29% S · 29% E · 29% T · 4% each pair · 3% all three</b>.</p>
+</div>
+
+<div class="card">
+  <div class="search">
+    <input id="q" placeholder="🔎 Search problem description or code…" style="flex:1;min-width:240px">
+    <select id="labelFilter"><option value="">All labels</option></select>
+    <a class="btn ok btn-sm" href="/api/dataset/download" style="width:auto;text-decoration:none">⬇️ Download CSV</a>
+  </div>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th style="width:22%">Description</th><th style="width:34%">Solution (with logic error)</th>
+      <th style="width:30%">Feedback</th><th style="width:14%">Label</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  </div>
+  <div class="pager">
+    <button id="prev">← Prev</button>
+    <span class="smallnote" id="pageInfo"></span>
+    <button id="next">Next →</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let page=0, size=10, total=0;
+async function load(){
+  const q=document.getElementById("q").value;
+  const lab=document.getElementById("labelFilter").value;
+  const r=await fetch(`/api/dataset?page=${page}&size=${size}&q=${encodeURIComponent(q)}&label=${encodeURIComponent(lab)}`);
+  const d=await r.json(); total=d.total;
+  if(!document.getElementById("labelFilter").dataset.filled){
+    document.getElementById("labelFilter").innerHTML = '<option value="">All labels</option>' +
+      d.labels.map(l=>`<option>${l}</option>`).join("");
+    document.getElementById("labelFilter").dataset.filled="1";
+  }
+  document.getElementById("rows").innerHTML = d.rows.map(row=>`
+    <tr>
+      <td>${row.Description}</td>
+      <td><pre class="small">${escapeHtml(row.Solution)}</pre></td>
+      <td class="smallnote">${escapeHtml(row.Feedback.slice(0,180))}…</td>
+      <td><span class="pill p${row.Label_Code}">${row.Label}</span></td>
+    </tr>`).join("") || '<tr><td colspan="4" style="text-align:center;padding:30px">No records found</td></tr>';
+  document.getElementById("pageInfo").textContent = `Page ${page+1} of ${Math.max(1,Math.ceil(total/size))} · ${total} records`;
+  document.getElementById("prev").disabled = page===0;
+  document.getElementById("next").disabled = (page+1)*size >= total;
+}
+function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+document.getElementById("q").addEventListener("input",()=>{page=0;load();});
+document.getElementById("labelFilter").addEventListener("change",()=>{page=0;load();});
+document.getElementById("prev").onclick=()=>{page--;load();};
+document.getElementById("next").onclick=()=>{page++;load();};
+load();
+</script>
+{% endblock %}

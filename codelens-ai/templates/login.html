@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeLens AI — Login</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="floats" id="floats"></div>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="logo">
+      <div class="logo-mark">&lt;/&gt;</div>
+      <div class="brand">CodeLens AI</div>
+    </div>
+    <div class="tag">ML-powered Python logic-error detection &amp; AST analysis<br>
+      Based on Gries state theory (S · T · E)</div>
+
+    {% if err %}<div class="err">⚠ {{ err }}</div>{% endif %}
+
+    <form method="post" id="authForm">
+      <input type="hidden" name="action" id="action" value="login">
+      <div class="field">
+        <label>USERNAME</label>
+        <input type="text" name="username" placeholder="e.g. python_dev" autofocus required>
+      </div>
+      <div class="field">
+        <label>PASSWORD</label>
+        <input type="password" name="password" placeholder="••••••••" required>
+      </div>
+      <button class="btn" type="submit" id="submitBtn">
+        <span>🔐</span> <span id="btnText">Login</span>
+      </button>
+    </form>
+
+    <div class="switch" id="switchLine">
+      New here? <a id="switchLink" style="color:var(--p2)">Create an account</a>
+    </div>
+  </div>
+</div>
+<script>
+const syms=["while","if","for","def","return","==","+=","print()","AST","S{","T{","E{","i<=n","lambda","import","class"];
+const fl=document.getElementById("floats");
+for(let i=0;i<24;i++){const s=document.createElement("span");
+ s.textContent=syms[Math.floor(Math.random()*syms.length)];
+ s.style.left=Math.random()*100+"vw";
+ s.style.fontSize=(14+Math.random()*24)+"px";
+ s.style.animationDuration=(10+Math.random()*16)+"s";
+ s.style.animationDelay=(-Math.random()*20)+"s";
+ fl.appendChild(s);}
+
+let mode="login";
+const link=document.getElementById("switchLink");
+link.onclick=()=>{
+  mode = mode==="login" ? "register" : "login";
+  document.getElementById("action").value=mode;
+  document.getElementById("btnText").textContent = mode==="login"?"Login":"Sign up";
+  document.getElementById("switchLine").innerHTML =
+    mode==="login"
+      ? 'New here? <a id="sl2" style="color:var(--p2);cursor:pointer;font-weight:700">Create an account</a>'
+      : 'Already registered? <a id="sl2" style="color:var(--p2);cursor:pointer;font-weight:700">Back to login</a>';
+  document.getElementById("sl2").onclick=link.onclick;
+};
+</script>
+</body>
+</html>

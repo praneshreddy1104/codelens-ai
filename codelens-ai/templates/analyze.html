@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}CodeLens AI — Analyze{% endblock %}
+{% block content %}
+<h1 class="page">Analyze Code</h1>
+<p class="sub">Paste a Python program with a <b>while</b> loop → check for logical errors → run the ML AST analysis.</p>
+
+<div class="card">
+  <h3><span class="ic">📝</span> Your Python code</h3>
+  <textarea class="editor" id="code" spellcheck="false" placeholder="n = 10&#10;total = 0&#10;i = 1&#10;while i <= n:&#10;    total += i&#10;    i += 1&#10;print(total)"></textarea>
+  <div class="btn-row">
+    <button class="btn btn-sm" id="btnCheck">⬆️ Upload &amp; Check Logic</button>
+    <button class="btn ghost btn-sm" id="btnSample">✨ Load example</button>
+    <button class="btn ghost btn-sm" id="btnClear">🧹 Clear</button>
+  </div>
+</div>
+
+<div id="checkResult" class="hidden">
+  <div class="verdict" id="verdict"></div>
+  <div class="card" id="issuesCard">
+    <h3><span class="ic">🐞</span> Detected logical problems <span class="smallnote" style="margin-left:8px">(state-tagged per Gries theory)</span></h3>
+    <div id="issues"></div>
+  </div>
+  <div class="card hidden" id="correctedCard">
+    <h3><span class="ic">🛠️</span> Auto-corrected code</h3>
+    <div class="codeout" id="correctedCode"></div>
+    <div class="btn-row">
+      <button class="btn pink btn-sm" id="btnML">🤖 Run ML AST Analysis on corrected code</button>
+    </div>
+  </div>
+  <div class="card hidden" id="mlOnCorrectCard">
+    <div class="btn-row" style="margin-top:0">
+      <button class="btn pink btn-sm" id="btnML2">🤖 Run ML AST Analysis on the code</button>
+    </div>
+  </div>
+</div>
+
+<div id="mlResult" class="hidden">
+  <div class="card">
+    <h3><span class="ic">🤖</span> ML prediction — Gries error classification</h3>
+    <div class="verdict bad" id="mlBanner"></div>
+    <p class="smallnote" id="mlNote"></p>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3><span class="ic">📊</span> Class probabilities (7 Gries labels)</h3>
+      <div class="chart"><img id="chartProba" alt="probabilities"></div></div>
+    <div class="card"><h3><span class="ic">🌳</span> AST feature profile across S / T / E states</h3>
+      <div class="chart"><img id="chartFeats" alt="ast features"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3><span class="ic">🌲</span> Abstract Syntax Tree (with Gries partitions)</h3>
+      <div class="codeout" id="treeText" style="max-height:420px;font-size:12.5px"></div>
+    </div>
+    <div class="card">
+      <h3><span class="ic">🔢</span> Extracted AST feature vector</h3>
+      <div class="feat-grid" id="featGrid"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const $ = id => document.getElementById(id);
+const examples = [
+`n = 10
+total = 0
+i = 1
+while i <= n:
+    total += i
+print(total)
+`,
+`num = 12345
+count = 0
+while num > 0:
+    num = num // 10
+    count += 1
+print(count)
+`,
+`n = 5
+fact = 1
+i = 1
+while i <= n:
+    fact *= i
+    i += 1
+print(fact)
+`];
+let exIdx = 0, corrected = null, verdict = null, analyzedCode = null;
+
+$("btnSample").onclick = () => { $("code").value = examples[exIdx % examples.length]; exIdx++; };
+$("btnClear").onclick = () => { $("code").value = ""; $("checkResult").classList.add("hidden");
+  $("mlResult").classList.add("hidden"); };
+
+function btnLoading(b, on, txt){ b.disabled = on;
+  b.innerHTML = on ? '<span class="spin"></span> '+txt : b.dataset.label || b.innerHTML; }
+
+$("btnCheck").onclick = async () => {
+  const code = $("code").value;
+  if(!code.trim()){ toast("Paste some code first ✋"); return; }
+  const b = $("btnCheck"); b.dataset.label = b.innerHTML;
+  btnLoading(b, true, "Analyzing logic…");
+  const r = await fetch("/api/check", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({code})});
+  const d = await r.json();
+  btnLoading(b, false);
+  if(d.error){ toast(d.error); return; }
+  verdict = d.verdict; corrected = d.corrected_code;
+  showVerdict(d);
+};
+
+function stateBadge(s){
+  const m = {S:"st-S", T:"st-T", E:"st-E"};
+  return `<span class="st ${m[s]||''}">${s==='?'?'SYNTAX':s+' state'}</span>`;
+}
+
+function showVerdict(d){
+  $("checkResult").classList.remove("hidden");
+  const v = $("verdict");
+  if(d.syntax_error){
+    v.className = "verdict bad";
+    v.innerHTML = '<span class="big">❌</span><div><b>Syntax error</b> — the code cannot be parsed into an AST. Fix the syntax first.</div>';
+  } else if(d.verdict === "correct"){
+    v.className = "verdict good";
+    v.innerHTML = '<span class="big">✅</span><div><b>No logical errors found — the code is CORRECT.</b><br><span style="font-weight:500;font-size:13.5px">Gries states S (initialization), T (loop transformation) and E (condition/result) are consistent.</span></div>';
+  } else {
+    v.className = "verdict bad";
+    v.innerHTML = '<span class="big">❌</span><div><b>Logical error(s) found — the code is WRONG.</b><br><span style="font-weight:500;font-size:13.5px">Error states: '
+      + d.states.map(s=>`<span class="state-badge st-${s}">${s}</span>`).join("") + '</span></div>';
+  }
+  // issues
+  const box = $("issues");
+  if(!d.issues.length){
+    box.innerHTML = '<p class="smallnote">✔ No issues reported by the rule engine — all Gries states are consistent.</p>';
+  } else {
+    box.innerHTML = d.issues.map(i => `
+      <div class="issue ${i.severity==='warning'?'warn':''}">
+        ${stateBadge(i.state)}<span class="ln">line ${i.line}</span>
+        <span style="text-transform:uppercase;font-size:10.5px;font-weight:800;color:${i.severity==='warning'?'var(--warn)':'var(--bad)'};margin-left:8px">${i.severity}</span>
+        <div class="msg" style="margin-top:6px">${i.message}</div>
+      </div>`).join("");
+  }
+  // corrected / ML buttons
+  $("correctedCard").classList.add("hidden");
+  $("mlOnCorrectCard").classList.add("hidden");
+  if(d.syntax_error){
+    // cannot run AST analysis on unparseable code
+  } else if(d.corrected_code){
+    $("correctedCard").classList.remove("hidden");
+    $("correctedCode").textContent = d.corrected_code;
+  } else {
+    $("mlOnCorrectCard").classList.remove("hidden");
+  }
+  $("mlResult").classList.add("hidden");
+}
+
+async function runML(codeToAnalyze){
+  const b = event.target; b.dataset.label = b.innerHTML;
+  btnLoading(b, true, "Training-style inference & building charts…");
+  const r = await fetch("/api/analyze_ml", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({code: codeToAnalyze, verdict})});
+  const d = await r.json();
+  btnLoading(b, false);
+  if(d.error){ toast(d.error); return; }
+  analyzedCode = codeToAnalyze;
+  // banner
+  const banner = $("mlBanner");
+  banner.className = "verdict bad";
+  banner.innerHTML = `<span class="big">🤖</span><div><b>ML model classifies this code as:</b>
+    <span style="font-size:19px;color:#fff"> ${d.prediction}</span><br>
+    <span style="font-weight:500;font-size:13.5px">Top probability ${(d.ranking[0].prob*100).toFixed(1)}% ·
+    analysis saved to your history ✔</span></div>`;
+  $("mlNote").innerHTML = "The ensemble Voting(RandomForest + MLP) was trained on the paper's 3,000-task Gries dataset "
+    + "(seed 2023, stratified 80/20 split) using AST feature counts per state — the structural analogue of the "
+    + "paper's Gries-partition (X<sub>S</sub>, X<sub>T</sub>, X<sub>E</sub>) embeddings. Labels: ys=Initial, "
+    + "ye=Final, yt=Transformation and their combinations.";
+  $("chartProba").src = "data:image/png;base64," + d.chart_proba;
+  $("chartFeats").src = "data:image/png;base64," + d.chart_features;
+  $("treeText").textContent = d.tree_text;
+  $("featGrid").innerHTML = Object.entries(d.features)
+    .filter(([k,v])=>v>0)
+    .map(([k,v])=>`<div class="feat"><span>${k}</span><b>${v}</b></div>`).join("");
+  $("mlResult").classList.remove("hidden");
+  $("mlResult").scrollIntoView({behavior:"smooth"});
+  toast("Analysis complete & saved to history ✔");
+}
+$("btnML").onclick = e => runML(corrected);
+$("btnML2").onclick = e => runML($("code").value);
+</script>
+{% endblock %}

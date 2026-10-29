@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}CodeLens AI — Profile{% endblock %}
+{% block content %}
+<h1 class="page">Profile</h1>
+<p class="sub">Your account &amp; saved analysis history.</p>
+
+<div class="grid4">
+  <div class="stat"><div class="n">{{ user.username }}</div><div class="l">Username</div></div>
+  <div class="stat"><div class="n">{{ total }}</div><div class="l">Total analyses</div></div>
+  <div class="stat"><div class="n" style="background:linear-gradient(90deg,#3ddc97,#00d4ff);-webkit-background-clip:text;background-clip:text;color:transparent">{{ clean }}</div><div class="l">Correct submissions</div></div>
+  <div class="stat"><div class="n" style="background:linear-gradient(90deg,#ff6b6b,#ff5ca8);-webkit-background-clip:text;background-clip:text;color:transparent">{{ wrong }}</div><div class="l">With logical errors</div></div>
+</div>
+
+<div class="card">
+  <h3><span class="ic">🕘</span> Analysis history</h3>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>Time</th><th>Verdict</th><th>ML classification</th><th>Confidence</th><th>Code</th></tr></thead>
+    <tbody id="histRows"><tr><td colspan="5" style="text-align:center;padding:30px;color:var(--mut)">
+      <span class="spin"></span> Loading…</td></tr></tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(async()=>{
+  const r=await fetch("/api/history"); const h=await r.json();
+  const box=document.getElementById("histRows");
+  if(!h.length){ box.innerHTML='<tr><td colspan="5" style="text-align:center;padding:30px">No analyses yet — go to <a href="/analyze">Analyze Code</a> to run your first check.</td></tr>'; return; }
+  box.innerHTML=h.map(x=>`
+    <tr>
+      <td style="white-space:nowrap">${x.time}</td>
+      <td><span class="pill ${x.verdict==='correct'?'good':'bad'}">${x.verdict}</span></td>
+      <td>${x.ml_label||'—'}</td>
+      <td>${x.confidence!=null?x.confidence+'%':'—'}</td>
+      <td><pre class="small" style="max-width:340px">${escapeHtml(x.code.slice(0,200))}</pre></td>
+    </tr>`).join("");
+})();
+function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+</script>
+{% endblock %}

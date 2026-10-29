@@ -1,0 +1,11 @@
+[
+ {
+  "uid": "8ac91ec7aa",
+  "time": "2026-10-29 09:56",
+  "code": "n = 10\ntotal = 0\ni = 1\nwhile i <= n:\n    total += i\n    i += 1\nprint(total)",
+  "verdict": "wrong",
+  "ml_label": "S (ys)",
+  "confidence": 59.1,
+  "id": "192c547d"
+ }
+]
